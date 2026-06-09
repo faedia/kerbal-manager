@@ -1,6 +1,7 @@
 //! HTTP API and static file serving.
 //!
-//! Per AD-0001 (docs/api-design.md), the surface is split by traffic type:
+//! Per AD-0001 (docs/decisions/0001-rest-commands-sse-telemetry.md), the
+//! surface is split by traffic type:
 //! discrete commands are REST endpoints with validation and status codes;
 //! telemetry is streamed server → client over SSE. State truth lives in the
 //! telemetry stream — `202 Accepted` means *validated and queued*, and the UI

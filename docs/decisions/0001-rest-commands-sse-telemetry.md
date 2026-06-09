@@ -218,8 +218,8 @@ don't want 50 events/sec. The UI is fine at full rate; this matters only if
 telemetry grows (e.g. full 3-DOF state) or clients multiply.
 
 The telemetry JSON schema is unchanged from today
-([state.rs](../crates/km-server/src/state.rs) `Telemetry` /
-[types.ts](../frontend/src/types.ts)).
+([state.rs](../../crates/km-server/src/state.rs) `Telemetry` /
+[types.ts](../../frontend/src/types.ts)).
 
 ### Command/state flow
 
