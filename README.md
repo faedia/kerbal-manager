@@ -39,7 +39,7 @@ controller. Orbit insertion, rendezvous, and docking are on the roadmap.
 | Crate / dir   | Responsibility |
 |---------------|----------------|
 | `crates/km-control` | Pure, deterministic control theory: `Pid`, cascaded `HoverController`, shared `VesselState`/`ControlOutput` types, and a 1-DOF `RocketSim`. No I/O — fully unit-testable. |
-| `crates/km-server`  | The real-time control loop (50 Hz, generic over a `Plant`), the kRPC link, and an [axum](https://docs.rs/axum) HTTP server (REST commands + SSE telemetry, see [AD-0001](docs/api-design.md)) that also serves the built frontend. |
+| `crates/km-server`  | The real-time control loop (50 Hz, generic over a `Plant`), the kRPC link, and an [axum](https://docs.rs/axum) HTTP server (REST commands + SSE telemetry, see [AD-0001](docs/decisions/0001-rest-commands-sse-telemetry.md)) that also serves the built frontend. |
 | `frontend`          | React + TypeScript dashboard: live telemetry over SSE, arm/disarm, set target altitude. |
 
 **Key design choice:** controllers never touch kRPC. They consume a `VesselState`
