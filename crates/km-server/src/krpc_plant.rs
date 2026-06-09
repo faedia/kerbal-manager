@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use km_control::VesselState;
-use krpc_client::services::space_center::{ReferenceFrame, SpaceCenter, Vessel};
+use krpc_client::services::space_center::{Control, Flight, SpaceCenter, Vessel};
 use krpc_client::Client;
 
 use crate::plant::Plant;
@@ -37,15 +37,22 @@ impl Default for KrpcConfig {
 }
 
 /// A [`Plant`] that drives the active vessel over kRPC.
+///
+/// Everything fixed for the session — the `Flight` and `Control` objects and
+/// surface gravity — is fetched once at connect. kRPC object references live
+/// server-side until the client disconnects, so creating them per-tick would
+/// leak ~`CONTROL_HZ` objects per second into the game process (and double the
+/// RPC count per tick).
 pub struct KrpcPlant {
     sc: SpaceCenter,
     vessel: Vessel,
-    /// The orbited body's **rotating** reference frame. Velocities reported in
-    /// this frame are surface-relative — this is what makes `vertical_speed`
-    /// the true climb rate. (See the note in `sample`.)
-    body_frame: ReferenceFrame,
-    /// Surface gravity of the orbited body, m/s². Constant for a given body, so
-    /// we read it once at connect rather than every tick.
+    /// Flight telemetry in the orbited body's **rotating** reference frame, so
+    /// reported velocities are surface-relative — this is what makes
+    /// `vertical_speed` the true climb rate. (See the note in `connect`.)
+    flight: Flight,
+    /// The vessel's control interface (throttle etc.).
+    control: Control,
+    /// Surface gravity of the orbited body, m/s². Constant for a given body.
     surface_gravity: f64,
 }
 
@@ -67,15 +74,21 @@ impl KrpcPlant {
             .await
             .context("no active vessel — switch to a flight scene")?;
 
-        // Cache the orbited body's rotating reference frame and surface gravity.
+        // IMPORTANT: build the Flight in the body's *rotating* reference frame,
+        // NOT `vessel.surface_reference_frame`. The surface frame is centered
+        // on the vessel and moves with it, so velocities relative to it read
+        // ~0. The body's rotating frame yields true surface-relative values.
         let body = vessel.get_orbit().await?.get_body().await?;
         let body_frame = body.get_reference_frame().await?;
         let surface_gravity = body.get_surface_gravity().await? as f64;
+        let flight = vessel.flight(Some(&body_frame)).await?;
+        let control = vessel.get_control().await?;
 
         Ok(Self {
             sc,
             vessel,
-            body_frame,
+            flight,
+            control,
             surface_gravity,
         })
     }
@@ -87,15 +100,8 @@ impl Plant for KrpcPlant {
     }
 
     async fn sample(&mut self) -> anyhow::Result<VesselState> {
-        // IMPORTANT: build the Flight in the body's *rotating* reference frame,
-        // NOT `vessel.surface_reference_frame`. The surface frame is centered on
-        // the vessel and moves with it, so the vessel's velocity relative to it
-        // is ~0 — which makes `vertical_speed` (and horizontal speed) read zero.
-        // The body's rotating frame yields true surface-relative velocities.
-        let flight = self.vessel.flight(Some(&self.body_frame)).await?;
-
-        let altitude = flight.get_surface_altitude().await?;
-        let vertical_speed = flight.get_vertical_speed().await?;
+        let altitude = self.flight.get_surface_altitude().await?;
+        let vertical_speed = self.flight.get_vertical_speed().await?;
         let mass = self.vessel.get_mass().await? as f64;
         let available_thrust = self.vessel.get_available_thrust().await? as f64;
 
@@ -111,8 +117,9 @@ impl Plant for KrpcPlant {
     }
 
     async fn set_throttle(&mut self, throttle: f64) -> anyhow::Result<()> {
-        let control = self.vessel.get_control().await?;
-        control.set_throttle(throttle.clamp(0.0, 1.0) as f32).await?;
+        self.control
+            .set_throttle(throttle.clamp(0.0, 1.0) as f32)
+            .await?;
         Ok(())
     }
 }

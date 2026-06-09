@@ -49,7 +49,9 @@ impl Default for HoverConfig {
 /// [`HoverController::update`].
 #[derive(Debug, Clone)]
 pub struct HoverController {
-    pub config: HoverConfig,
+    /// Gains. Private because the inner PID is derived from them — mutate via
+    /// [`HoverController::set_config`] so the two can't fall out of sync.
+    config: HoverConfig,
     /// Desired altitude above the surface, meters.
     pub target_altitude: f64,
     vspeed_pid: Pid,
@@ -76,6 +78,20 @@ impl HoverController {
     /// Change the altitude setpoint. Cheap; safe to call every tick.
     pub fn set_target_altitude(&mut self, altitude: f64) {
         self.target_altitude = altitude;
+    }
+
+    /// The current gains.
+    pub fn config(&self) -> &HoverConfig {
+        &self.config
+    }
+
+    /// Replace the gains, propagating them into the inner PID. Preserves the
+    /// integrator state, so this is safe to call mid-flight for live tuning.
+    pub fn set_config(&mut self, config: HoverConfig) {
+        self.vspeed_pid.kp = config.vspeed_kp;
+        self.vspeed_pid.ki = config.vspeed_ki;
+        self.vspeed_pid.kd = config.vspeed_kd;
+        self.config = config;
     }
 
     /// Clear the inner integrator/derivative. Call when (re)engaging.

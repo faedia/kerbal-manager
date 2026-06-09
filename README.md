@@ -64,10 +64,16 @@ writes `frontend/dist`, which `km-server` serves directly at `:8080`.
 
 1. Install the kRPC mod in KSP, launch a vessel, and start the kRPC server
    (default `127.0.0.1:50000/50001`).
-2. Run with the live link enabled:
+2. Run with the live link enabled — `KM_KRPC` must be set **before** launch:
+
+   ```powershell
+   # PowerShell
+   $env:KM_KRPC = "1"; cargo run -p km-server --features krpc
+   ```
 
    ```sh
-   cargo run -p km-server --features krpc   # then set KM_KRPC=1
+   # bash
+   KM_KRPC=1 cargo run -p km-server --features krpc
    ```
 
    The kRPC link lives entirely in `crates/km-server/src/krpc_plant.rs` and is
@@ -82,9 +88,9 @@ writes `frontend/dist`, which `km-server` serves directly at `:8080`.
 
 | Var | Default | Meaning |
 |-----|---------|---------|
-| `KM_BIND` | `0.0.0.0:8080` | Server bind address. |
+| `KM_BIND` | `127.0.0.1:8080` | Server bind address. The API is unauthenticated and can arm the vessel, so it binds loopback by default; set `0.0.0.0:8080` to expose it on the LAN deliberately. |
 | `KM_FRONTEND_DIST` | `frontend/dist` | Directory of built frontend assets. |
-| `KM_KRPC` | _(unset)_ | If set (and built with `--features krpc`), connect to live KSP. |
+| `KM_KRPC` | _(unset)_ | If truthy (and built with `--features krpc`), connect to live KSP. `0`/`false`/`no`/`off`/empty count as unset. |
 | `RUST_LOG` | `info,km_server=debug` | Tracing filter. |
 
 ## Tests
