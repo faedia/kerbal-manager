@@ -1,6 +1,7 @@
-# API Design: REST commands + streamed telemetry
+# AD-0001: REST commands + streamed telemetry
 
-**Status:** proposed
+**Status:** accepted (2026-06-09, with the caveats in
+[Review caveats](#review-caveats-accepted-with-the-design))
 **Date:** 2026-06-09
 **Scope:** the HTTP surface between `frontend/` and `km-server` (`crates/km-server/src/api.rs`)
 
@@ -304,6 +305,34 @@ break. Do it in one change set:
   hand-rolled reconnect for a now one-directional stream that SSE handles
   natively. Choose WS here only if binary framing or client→server streaming
   becomes necessary first. Rejected for now.
+
+## Review caveats (accepted with the design)
+
+Attached at acceptance; none blocking, all to be honored during/after
+implementation:
+
+1. **Browser connection limits.** SSE holds one of ~6 HTTP/1.1 connections per
+   origin per browser profile, and axum won't negotiate HTTP/2 without TLS.
+   One or two dashboard tabs are fine; many tabs (e.g. one per vessel) would
+   starve the pool. The multi-vessel design should multiplex all vessels over
+   a single stream — the named-event scheme already permits this.
+2. **Compression middleware must exclude the SSE route.** No
+   `CompressionLayer` exists today, but if one is added for static assets, a
+   buffered `text/event-stream` stalls silently. Exclude
+   `/api/telemetry/stream` explicitly.
+3. **`EventSource` status semantics.** It auto-reconnects internally:
+   `onerror` fires during retries and there is no terminal "closed" state
+   unless the client calls `close()`. The UI status indicator maps
+   `onopen` → live, `onerror` → reconnecting.
+4. *(Implementation note)* axum's `Json` extractor already yields
+   422/400 for malformed bodies, and JSON cannot encode `NaN`/`Infinity`, so
+   the validation surface reduces to the range check in the handler. Drop
+   axum's `ws` feature and add `tokio-stream` (for `WatchStream`).
+
+Priority note: the two halves of this design are separable — REST commands
+fix real bugs (no ack, silent drop on reconnect); SSE is a simplification.
+They ship together here because the migration is small, but commands-to-REST
+is the load-bearing half.
 
 ## Future work
 
