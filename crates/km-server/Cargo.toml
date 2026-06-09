@@ -3,7 +3,7 @@ name = "km-server"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
-description = "Flight-control loop + web/WebSocket server bridging controllers to kRPC."
+description = "Flight-control loop + web server (REST commands, SSE telemetry) bridging controllers to kRPC."
 
 [dependencies]
 km-control = { path = "../km-control" }
@@ -13,8 +13,10 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-axum = { version = "0.7", features = ["ws"] }
+axum = "0.7"
 tower-http = { version = "0.5", features = ["fs", "cors"] }
+# WatchStream adapter for the SSE telemetry stream (AD-0001).
+tokio-stream = { version = "0.1", features = ["sync"] }
 
 # The real Kerbal Space Program link. Optional and OFF by default, so the whole
 # workspace builds and the simulator runs without a KSP/kRPC connection. Enable

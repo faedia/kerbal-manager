@@ -1,7 +1,7 @@
 //! Kerbal Manager server: runs the flight-control loop and the web API.
 //!
 //! By default it flies the offline [`SimPlant`], so you can run the whole
-//! stack — server, WebSocket telemetry, web UI — with KSP closed. Build with
+//! stack — server, SSE telemetry, web UI — with KSP closed. Build with
 //! `--features krpc` and set `KM_KRPC=1` to connect to a live vessel instead.
 
 mod api;
@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     let addr: SocketAddr = std::env::var("KM_BIND")
         .unwrap_or_else(|_| "127.0.0.1:8080".to_string())
         .parse()?;
-    tracing::info!(%addr, "serving HTTP + WebSocket");
+    tracing::info!(%addr, "serving HTTP API (REST commands + SSE telemetry)");
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;

@@ -1,4 +1,4 @@
-// Mirrors the server's `Telemetry` and `Command` types (km-server/src/state.rs).
+// Mirrors the server's `Telemetry` type (km-server/src/state.rs).
 // Keep these in sync with the Rust definitions.
 
 export interface VesselState {
@@ -17,8 +17,3 @@ export interface Telemetry {
   t: number;
   source: string;
 }
-
-export type Command =
-  | { type: "arm" }
-  | { type: "disarm" }
-  | { type: "set_target_altitude"; altitude: number };

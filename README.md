@@ -10,10 +10,10 @@ controller. Orbit insertion, rendezvous, and docking are on the roadmap.
 ## Architecture
 
 ```
-┌─────────────┐      WebSocket / REST      ┌──────────────────────────┐
+┌─────────────┐      REST + SSE            ┌──────────────────────────┐
 │  React UI   │ ◄────────────────────────► │        km-server         │
-│ (frontend/) │   telemetry out, cmds in   │  web API + control loop  │
-└─────────────┘                            └───────────┬──────────────┘
+│ (frontend/) │  cmds in (REST), telemetry │  web API + control loop  │
+└─────────────┘   out (SSE stream)         └───────────┬──────────────┘
                                                         │ Plant trait
                                         ┌───────────────┴───────────────┐
                                         │                               │
@@ -32,8 +32,8 @@ controller. Orbit insertion, rendezvous, and docking are on the roadmap.
 | Crate / dir   | Responsibility |
 |---------------|----------------|
 | `crates/km-control` | Pure, deterministic control theory: `Pid`, cascaded `HoverController`, shared `VesselState`/`ControlOutput` types, and a 1-DOF `RocketSim`. No I/O — fully unit-testable. |
-| `crates/km-server`  | The real-time control loop (50 Hz, generic over a `Plant`), the kRPC link, and an [axum](https://docs.rs/axum) HTTP + WebSocket server that also serves the built frontend. |
-| `frontend`          | React + TypeScript dashboard: live telemetry over WebSocket, arm/disarm, set target altitude. |
+| `crates/km-server`  | The real-time control loop (50 Hz, generic over a `Plant`), the kRPC link, and an [axum](https://docs.rs/axum) HTTP server (REST commands + SSE telemetry, see [AD-0001](docs/api-design.md)) that also serves the built frontend. |
+| `frontend`          | React + TypeScript dashboard: live telemetry over SSE, arm/disarm, set target altitude. |
 
 **Key design choice:** controllers never touch kRPC. They consume a `VesselState`
 and emit a `ControlOutput`, so the *exact same* loop runs against the offline

@@ -1,9 +1,17 @@
 import { useState } from "react";
+import { arm, disarm, setTargetAltitude } from "./api";
 import { useTelemetry } from "./useTelemetry";
 
 export default function App() {
-  const { telemetry, status, send } = useTelemetry();
+  const { telemetry, status } = useTelemetry();
   const [targetInput, setTargetInput] = useState("100");
+  // Last command failure, surfaced instead of silently dropped (AD-0001).
+  const [commandError, setCommandError] = useState<string | null>(null);
+
+  const runCommand = (command: Promise<void>) =>
+    command
+      .then(() => setCommandError(null))
+      .catch((e: unknown) => setCommandError(e instanceof Error ? e.message : String(e)));
 
   const t = telemetry;
   const twr =
@@ -32,7 +40,7 @@ export default function App() {
       <section style={styles.controls}>
         <button
           style={styles.button(t?.armed ? "#b23" : "#2a7")}
-          onClick={() => send({ type: t?.armed ? "disarm" : "arm" })}
+          onClick={() => runCommand(t?.armed ? disarm() : arm())}
         >
           {t?.armed ? "DISARM" : "ARM HOVER"}
         </button>
@@ -49,7 +57,7 @@ export default function App() {
             onClick={() => {
               const altitude = Number(targetInput);
               if (!Number.isNaN(altitude)) {
-                send({ type: "set_target_altitude", altitude });
+                runCommand(setTargetAltitude(altitude));
               }
             }}
           >
@@ -57,6 +65,8 @@ export default function App() {
           </button>
         </div>
       </section>
+
+      {commandError && <p style={styles.error}>Command failed: {commandError}</p>}
 
       <p style={styles.hint}>
         Running against the <strong>{t?.source ?? "…"}</strong> plant. Arm to engage the
@@ -138,4 +148,13 @@ const styles = {
     cursor: "pointer",
   }),
   hint: { color: "#8b98a5", marginTop: "2rem", fontSize: "0.9rem" },
+  error: {
+    color: "#ff8080",
+    background: "#3a1111",
+    border: "1px solid #5e1e1e",
+    borderRadius: "8px",
+    padding: "0.6rem 1rem",
+    marginTop: "1rem",
+    fontSize: "0.9rem",
+  },
 };

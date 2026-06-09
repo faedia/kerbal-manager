@@ -1,17 +1,19 @@
 //! Shared types and channels connecting the web API to the control loop.
 //!
 //! Data flow:
-//! - The API sends [`Command`]s into an mpsc channel; the control loop drains it.
-//! - The control loop publishes [`Telemetry`] on a `watch` channel; every
-//!   WebSocket client and the REST snapshot endpoint read the latest value.
+//! - The REST command handlers send [`Command`]s into an mpsc channel; the
+//!   control loop drains it at the top of each tick.
+//! - The control loop publishes [`Telemetry`] on a `watch` channel; every SSE
+//!   stream and the REST snapshot endpoint read the latest value.
 
 use km_control::VesselState;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::sync::{mpsc, watch};
 
-/// A command from the operator (web UI / API) to the control loop.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+/// A command from the operator to the control loop. Internal to the server —
+/// per AD-0001 the HTTP surface is one REST endpoint per action, and handlers
+/// construct these directly.
+#[derive(Debug, Clone)]
 pub enum Command {
     /// Engage the hover controller (resets the controller's integrators first).
     Arm,
@@ -22,7 +24,7 @@ pub enum Command {
 }
 
 /// A snapshot the control loop publishes every tick for observers.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct Telemetry {
     /// Whether the controller is currently engaged.
     pub armed: bool,
