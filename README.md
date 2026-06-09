@@ -8,11 +8,11 @@ Control theory and the backend are written in **Rust**; the operator UI is a
 controller. Orbit insertion, rendezvous, and docking are on the roadmap.
 
 > [!NOTE]
-> Alongside its stated goal, this project is used to **experiment with
-> AI-agent development processes**: the code, reviews, design records (see
-> [docs/](docs/)), and commit history are substantially produced by AI agents
-> working under human direction, and the workflow itself is part of what's
-> being explored here.
+> I use this project to **experiment with AI-agent development processes**.
+> Much of the code, the reviews, the design records (see [docs/](docs/)), and
+> the commit history is produced by AI agents working under my direction —
+> how well that workflow holds up is as much the point of this repo as the
+> rockets are.
 
 ## Architecture
 
