@@ -7,6 +7,13 @@ Control theory and the backend are written in **Rust**; the operator UI is a
 **React + TypeScript** web app. The current milestone is a **hover / altitude-hold**
 controller. Orbit insertion, rendezvous, and docking are on the roadmap.
 
+> [!NOTE]
+> Alongside its stated goal, this project is used to **experiment with
+> AI-agent development processes**: the code, reviews, design records (see
+> [docs/](docs/)), and commit history are substantially produced by AI agents
+> working under human direction, and the workflow itself is part of what's
+> being explored here.
+
 ## Architecture
 
 ```
