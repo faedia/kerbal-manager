@@ -4,16 +4,18 @@
 //! running inside KSP, samples the active vessel's surface-relative flight
 //! state, and writes the throttle back.
 //!
-//! NOTE: the exact `krpc-client` method names below follow the documented kRPC
-//! `SpaceCenter` service. Verify against your installed `krpc-client` version
-//! the first time you fly — this module is intentionally the only place that
-//! touches the live API, so any drift is contained here.
+//! Telemetry uses kRPC **streams** rather than per-tick RPCs: the game pushes
+//! updates to a client-side cache, and `sample()` just reads that cache. With
+//! polling, each 50 Hz tick cost ~6 sequential RPC round-trips inside the
+//! game's fixed-update budget; with streams it costs zero (the only per-tick
+//! RPC left is the throttle write).
 
 use std::sync::Arc;
 
 use anyhow::Context;
 use km_control::VesselState;
-use krpc_client::services::space_center::{Control, Flight, SpaceCenter, Vessel};
+use krpc_client::services::space_center::{Control, SpaceCenter, Vessel};
+use krpc_client::stream::Stream;
 use krpc_client::Client;
 
 use crate::plant::Plant;
@@ -38,26 +40,33 @@ impl Default for KrpcConfig {
 
 /// A [`Plant`] that drives the active vessel over kRPC.
 ///
-/// Everything fixed for the session — the `Flight` and `Control` objects and
-/// surface gravity — is fetched once at connect. kRPC object references live
-/// server-side until the client disconnects, so creating them per-tick would
-/// leak ~`CONTROL_HZ` objects per second into the game process (and double the
-/// RPC count per tick).
+/// Everything fixed for the session is set up once in [`KrpcPlant::connect`]:
+/// the telemetry streams, the `Control` object, and surface gravity. kRPC
+/// object references live server-side until the client disconnects, so
+/// creating objects per-tick would leak into the game process.
 pub struct KrpcPlant {
     sc: SpaceCenter,
     vessel: Vessel,
-    /// Flight telemetry in the orbited body's **rotating** reference frame, so
-    /// reported velocities are surface-relative — this is what makes
-    /// `vertical_speed` the true climb rate. (See the note in `connect`.)
-    flight: Flight,
     /// The vessel's control interface (throttle etc.).
     control: Control,
+    /// Streamed altitude above the surface, meters.
+    altitude: Stream<f64>,
+    /// Streamed surface-relative vertical speed, m/s.
+    vertical_speed: Stream<f64>,
+    /// Streamed total vessel mass, kg.
+    mass: Stream<f32>,
+    /// Streamed available thrust at full throttle, N.
+    available_thrust: Stream<f32>,
     /// Surface gravity of the orbited body, m/s². Constant for a given body.
     surface_gravity: f64,
 }
 
 impl KrpcPlant {
-    /// Connect to KSP and grab the active vessel.
+    /// Connect to KSP, grab the active vessel, and open telemetry streams.
+    ///
+    /// Under the `tokio` feature, `krpc-client` waits for each stream's first
+    /// value inside the stream constructor, so `sample()` is valid immediately
+    /// after this returns.
     pub async fn connect(cfg: &KrpcConfig) -> anyhow::Result<Self> {
         let client: Arc<Client> = Client::new(
             "kerbal-manager",
@@ -82,13 +91,25 @@ impl KrpcPlant {
         let body_frame = body.get_reference_frame().await?;
         let surface_gravity = body.get_surface_gravity().await? as f64;
         let flight = vessel.flight(Some(&body_frame)).await?;
+
+        // Open the telemetry streams (default rate: every game physics tick).
+        // The Flight wrapper itself isn't needed afterwards — each stream
+        // carries its own procedure call.
+        let altitude = flight.get_surface_altitude_stream().await?;
+        let vertical_speed = flight.get_vertical_speed_stream().await?;
+        let mass = vessel.get_mass_stream().await?;
+        let available_thrust = vessel.get_available_thrust_stream().await?;
+
         let control = vessel.get_control().await?;
 
         Ok(Self {
             sc,
             vessel,
-            flight,
             control,
+            altitude,
+            vertical_speed,
+            mass,
+            available_thrust,
             surface_gravity,
         })
     }
@@ -100,16 +121,17 @@ impl Plant for KrpcPlant {
     }
 
     async fn sample(&mut self) -> anyhow::Result<VesselState> {
-        let altitude = self.flight.get_surface_altitude().await?;
-        let vertical_speed = self.flight.get_vertical_speed().await?;
-        let mass = self.vessel.get_mass().await? as f64;
-        let available_thrust = self.vessel.get_available_thrust().await? as f64;
+        // These read the client-side stream cache — no RPC round-trips.
+        let altitude = self.altitude.get().await?;
+        let vertical_speed = self.vertical_speed.get().await?;
+        let mass = self.mass.get().await? as f64;
+        let available_thrust = self.available_thrust.get().await? as f64;
 
-        let _ = &self.sc; // kept for richer queries (staging, etc.) later.
+        let _ = (&self.sc, &self.vessel); // kept for richer queries later.
 
         Ok(VesselState {
-            altitude: altitude as f64,
-            vertical_speed: vertical_speed as f64,
+            altitude,
+            vertical_speed,
             mass,
             available_thrust,
             gravity: self.surface_gravity,

@@ -80,7 +80,9 @@ writes `frontend/dist`, which `km-server` serves directly at `:8080`.
    compiled out by default, so the rest of the stack always builds without it.
 
 > `krpc_plant.rs` compiles against the real `krpc-client` API (method names are
-> type-checked). It samples surface-relative velocity from the body's **rotating**
+> type-checked). Telemetry uses kRPC **streams** — the game pushes updates to a
+> client-side cache, so each control tick costs zero telemetry RPCs (only the
+> throttle write goes over the wire). Velocities come from the body's **rotating**
 > reference frame — using `vessel.surface_reference_frame` instead makes
 > `vertical_speed` read zero, since that frame moves with the vessel.
 
