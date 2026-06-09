@@ -1,0 +1,26 @@
+[package]
+name = "km-server"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Flight-control loop + web/WebSocket server bridging controllers to kRPC."
+
+[dependencies]
+km-control = { path = "../km-control" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+axum = { version = "0.7", features = ["ws"] }
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+
+# The real Kerbal Space Program link. Optional and OFF by default, so the whole
+# workspace builds and the simulator runs without a KSP/kRPC connection. Enable
+# with `cargo run -p km-server --features krpc` once KSP + the kRPC server is up.
+krpc-client = { version = "0.6", features = ["tokio"], optional = true }
+
+[features]
+default = []
+krpc = ["dep:krpc-client"]
